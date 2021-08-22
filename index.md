@@ -1,73 +1,73 @@
-# localhost の設定を放置して失敗した話
-当チームのサーバーでは nginx を使用している。導入当初、稼働確認などで使用するために localhost でアクセスできるように設定していた。
-DNS の設定および、テスト用・本番用の各WEB サーバーの設定も完了した後は、稼働確認が必要になることも無くなり localhost にアクセスすることも無くなった。
-ただ、今後も稼働確認が必要になるケースも想定されるので、localhost の設定はそのまま放置してあった。
-ちなみに、**localhost の root は、本番用のWEBサーバー（www.ドメイン）と同じ場所を使うようにしてあった**。
-## エラーの発生
-ログのチェックをしている中で、不審なエラーが出るようになった。サーバー上で稼働している WEBサイトでは Google Firebase の Analytics を使用している。ここで使用している APIキー には HTTP リファラーで制限を設けてあるが、この利用制限違反が原因のエラーが発生するようになったのだ。
-ログを追っていくと、"localhost" からのアクセスでこのエラーが出ていた。しかもクライアントは Linux 。我々の環境では、サーバーにログインできるのはインフラ担当者のみで、アプリ担当者はログイン禁止にしている。このエラーは有り得ない。まさか、ハッキングされたのでは？と一瞬焦った。
-さらにこのエラーを出している元を追跡していったところ、どうやらウェブクローラ [[Google公式：検索が情報を整理する仕組み]](https://www.google.com/intl/ja/search/howsearchworks/crawling-indexing/) だという結論に達した。ウェブクローラが、`hssp://xxx.xxx.xxx.xxx` にアクセスしてきたことで "localhost" の WEBサーバーが使用されていたのだ。
+# It's my failure to leave the localhost error there
+We use nginx on our server. At the beginning of the introduction, web server "localhost" was set on nginx for use in operation check etc.
+After completing the DNS settings and the test / production WEB server settings, there is no need to check the operation and access to "localhost" is no longer necessary.
+However, since it is expected that operation confirmation will be required in the future, the "localhost" setting was left as it is.
+As a side note, **The root folder of "localhost" was set to use the same location as the production web server (www.[ my domain ])**。
+## An ERROR has occured
+A suspicious error occurred while checking the logs. Our website uses Google Firebase Analytics. The API key used here is restricted by the HTTP referrer, but this usage restriction violation causes an error.
+Tracking the logs revealed that this error was occurring on access from "localhost". Also, the client is Linux. On our server, only infrastructure personnel can log in to the server, not application personnel. This error is not possible. I thought I was hacked, so I was a little impatient.
+After further tracking the source of this error, I came to the conclusion that it was a web crawler. [[Official document: How Google Search Works (for beginners)]](https://developers.google.com/search/docs/beginner/how-search-works#crawling) The web crawler was using the "localhost" web server by accessing `hssp: //xxx.xxx.xxx.xxx`.
 
-1. ハッカーにやられている訳ではなく、セキュリティ上はなんの問題もない。一般に公開しているページが見られているだけのことである
-1. エラーは出ているが、一般のユーザーの利用で出ているエラーではない
-1. Analytics のデータは取れないが、むしろウェブクローラのアクセス数はカウントから除外したいくらいなので好都合
+1. It's not being hacked by hackers, and there are no security issues. They're just looking at pages that are open to the public
+1. There is an error, but it is not an error that is occurring for general users
+1. I can't get Analytics data, but it's convenient because I want to exclude the number of web crawler accesses from the count.
 
-と言うことで、実害がないと判断してエラーを放置した。**これがいけなかった**
-##問題勃発
-最近、Googleで検索していたら当チームのWEBサイトがヒットした。これ自体は喜ぶべきことなのだが、そこでリンクされていたアドレスが**なんと`http://xxx.xxx.xxx.xxx/~`だったのだ！**
-ウェブクローラはちゃんと仕事をしていたのだ。
-これはヤバい。エラーを放置していたことがバレてしまう。
-いや、システムの運用上ヤバいのだ。
+I decided that it wasn't really harmful and left the error as it was.**This was the root of all the problems**
+##Problem outbreak
+Recently, when I searched on Google, our website was a hit. This is a delight in itself, but **the address linked there was `http://xxx.xxx.xxx.xxx/~`!**
+The web crawler was working properly.
+It became a troublesome situation
 
-1. せっかく本番用のアドレスは https で用意してあるのに http でアクセスされてしまう
-1. サーバーは引越すことを想定している。固定アドレスが広まってしまうと困る
-1. 一般ユーザーが利用しているときにエラーを出す訳には行かない。HTTP リファラーでの利用制限を前提としている以上、一般ユーザーにlocalhost を使われては非常に困る
+1. Even though the production address is prepared by https, it is accessed by http
+1. The server is to be changed. It becomes a problem when fixed addresses spread to the world
+1. I want to avoid errors during use by general users. It is very troublesome for general users to use "localhost" because it is premised on the usage restrictions in the HTTP referrer.
 
-なんとかリカバリーしなければ・・・
-##対処方法
+I have to recover somehow ...
+##Workaround
 ###reverse proxy
-取り急ぎ nginx の localhost に reverse procy を設定した。www.ドメイン のアドレスに飛ばすようにしたのだ
-APIキーの HTTP リファラーのエラーは解消したが、これはこれで問題が残る
+I set reverse proxy in "localhost" on nginx. I tried to redirect the address to the www.[ my domain ].
+The API key HTTP referrer error has been resolved, but this remains a problem
 
-1. **http://~** のアクセスには対応できるが、**https://~** では別の問題が生じる。**localhost** に対してはCA認証済みの証明書は発行されないのだ。**自己証明書**になってしまうので、ブラウザに「この接続ではプライバシーが保護されません」のエラーが出てしまう。
-1. 引き続き`http://xxx.xxx.xxx.xxx/~`でアクセスするとちゃんとページが表示されるので、ウェブクローラは正当なサイトだと認識し続けるのではないか？そうすると、検索結果としてのこのページが表示されたままになる。将来サーバーを引越す場合に障壁になってしまう。
+1. It works fine with **http://~**, but there are other issues with **https://~**. Because no one can get **CA signed certificate** for **"localhost"**. Since it should be a **self-signed certificate**, I get a "connection is not private" error in Chrome.
+1. When someone visits `http: // xxx.xxx.xxx.xxx / ~`, the website returns the correct page.I'm worried that web crawlers will continue to recognize it as a legitimate site. Then, this link as a search result will remain displayed. It will be a problem when we move the server in the future.
 
-何か別の方法を考えなければ・・・
+I have to recover somehow ...
 ###Hello World
-`http://xxx.xxx.xxx.xxx/~`にアクセスしてきた場合に、Hello world を表示するように変更した。
-これなら稼働確認として localhost を使用できるし、意味のないページなのでウェブクローラもいずれは検索結果から除外してくれるのではないか？と期待
-しかし、これはこれで問題がある
+I changed our website to show Hello World when someone visits `http://xxx.xxx.xxx.xxx/~`
+In this case, "localhost" can be used as an operation check. Since it is a meaningless page, I expect that the web crawler will eventually exclude it from the search results. 
+But this is a problem with this
 
-1. 検索結果からアクセスしてくれた一般ユーザーの方が「なんじゃこりゃ」となる
-1. アクセスしても一応正常なステータスでHello World が返ってくるので、ウェブクローラもアクセスしてはダメなサイトだと認識してくれないかもしれない
+1. General users who access from the search results will be surprised. "What is this?"
+1. Even if you access it, "Hello World" will be returned with normal status, so the web crawler may not recognize it as a bad site to access.
 
-何か別の方法を考えなければ・・・
-###オリジナルの404エラー画面を表示
-最終的には`http://xxx.xxx.xxx.xxx/~` や `https://xxx.xxx.xxx.xxx/~` でアクセスされた場合には、オリジナルの404エラーのページを出すように設定した。出しているのはこんなページ。
+I have to recover somehow ...
+###Show a customized 404 error screen
+In conclusion,  I set our nginx to show custom 404 error screen when someone visits `http://xxx.xxx.xxx.xxx/~` or `https://xxx.xxx.xxx.xxx/~`.
+It is like this.
 
 ```
 An error occurred.
 Sorry, you can not use the IP address for the page you are looking for.
-Please try domain name like "https://www.[ドメイン]/~".　＜＝ 実際のURL を記載
+Please try domain name like "https://www.[ my domain ]/~".
 
 Faithfully yours.
 ```
-ご参考までに、オリジナルのエラーページを出す nginx の設定は以下の通り
+For reference, the settings of nginx to display the custom error page are as follows.
 
 ```server.conf
 server {
     listen       443  ssl;
     access_log  /var/log/nginx/localhost.access.log  main;
     error_log  /var/log/nginx/localhost.error.log;
-    ssl_certificate /etc/nginx/ssl/nginx.pem;      # 証明書は自己証明書
+    ssl_certificate /etc/nginx/ssl/nginx.pem;      # this is self-signed certificate
     ssl_certificate_key /etc/nginx/ssl/nginx.key;
     server_name  localhost;    
-    error_page 404 /404.html;                      # オリジナルのエラーページを宣言
+    error_page 404 /404.html;                      # custom error page name
     location / {
-        return 404;                                # 常に 404 を返す
+        return 404;                                # allways occur 404 error
     }
-    location = /404.html {                         # エラーページの格納先
-        root   /usr/share/nginx/localhost;         # ここに 404.html を保存しておく
+    location = /404.html {                         
+        root   /usr/share/nginx/localhost;         # 404.html is saved here
         internal;
     }
 }
@@ -87,17 +87,17 @@ server {
 }
 ```
 
-オリジナルのエラーページなので、
+Since the custom error screen is displayed,
 
-1. 稼働確認や接続テストの場合には正しく動いたかどうか確認ができる
-1. nginx オリジナルの50x.html と似ているので、世間的に受け入れられ易いのではないか
-1. エラーの理由と対処法を記載してあるので「なんじゃこりゃ」にはならないのではないか
-1. エラーで返しているので、アクセスしてはダメなページだとウェブクローラにも判るのではないか
+1. In the case of operation check and connection test, we can check whether it worked correctly
+1. It's similar to nginx original 50x.html, so it may be easily accepted by the users.
+1. Since the reason for the error and the remedy are described, general users should not be surprised.
+1. Since it returns with an error status, the web crawler may know that it is a bad page to access.
 
-と言うことで、この状態でウェブクローラが検索結果を修正してくれるのを待つことにした。
+I decided to wait for the web crawler to correct the search results.
 
-####あとがき
-最初からこういう設定にしておけば良かったと後悔しています。もし、localhostのWEBサーバーを本番と同じ内容で設定している人がいたら、今すぐ変更することをお勧めします。
+####Appendix
+I regret that I should have set it like this from the beginning. If anyone has set up the "localhost2 WEB server with the same content as the production, I recommend that you change it now.
 
-こちらのwebsiteもよろしくお願いします。
-[[初心者のためのWEBシステムのインフラ構築]](https://www.olto3-sugi3.tk/ja/index.html)
+## Plese visit our website.
+### [WEB System Infrastructure Guide for Beginners](https://www.olto3-sugi3.tk/index.html)
