@@ -1,4 +1,4 @@
-# It's my failure to leave the localhost error there
+# It was my failure to leave the localhost error
 We use nginx on our server. At the beginning of the introduction, web server "localhost" was set on nginx for use in operation check etc.
 After completing the DNS settings and the test / production WEB server settings, there is no need to check the operation and access to "localhost" is no longer necessary.
 However, since it is expected that operation confirmation will be required in the future, the "localhost" setting was left as it is.
