@@ -100,4 +100,4 @@ I decided to wait for the web crawler to correct the search results.
 I regret that I should have set it like this from the beginning. If anyone has set up the "localhost2 WEB server with the same content as the production, I recommend that you change it now.
 
 ## Plese visit our website.
-### [WEB System Infrastructure Guide for Beginners](https://www.olto3-sugi3.tk/index.html)
+### [WEB System Infrastructure Guide for Beginners](https://olto3-sugi3.tk/index.html)
